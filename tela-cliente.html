@@ -168,28 +168,55 @@ function ver(id){
 }
 function yen(n){ return '\u00a5' + String(Math.round(n||0)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function desenhar(d){
-  if (!d || d.estado === 'espera' || !d.itens || !d.itens.length && d.estado !== 'pago') { ver('t-espera'); return; }
+var ZEI = '\u5185\u6d88\u8cbb\u7a0e';
+var SZ = '\u30b5\u30a4\u30ba';
+function tipoTxt(d){
+  if (d.modo === 'local') return '\u5e97\u5185\u98f2\u98df \u00b7 ' + d.mesa + '\u756a / Mesa ' + d.mesa;
+  if (d.modo === 'entrega') return '\u30c7\u30ea\u30d0\u30ea\u30fc / Entrega';
+  return '\u30c6\u30a4\u30af\u30a2\u30a6\u30c8 / Retirada';
+}
+function tamTxt(t){
+  if (t === 'L') return 'L ' + SZ + ' / Grande';
+  if (t === 'M') return 'M ' + SZ + ' / M\u00e9dia';
+  if (t === 'S') return 'S ' + SZ + ' / Pequena';
+  return '';
+}
+function desenharAgora(d){
+  if (!d || d.estado === 'espera' || (d.estado !== 'pago' && (!d.itens || !d.itens.length))) { ver('t-espera'); return; }
   if (d.estado === 'pago') { ver('t-pago'); return; }
-  document.getElementById('c-nome').textContent = d.nome || '';
-  document.getElementById('c-tipo').textContent = d.tipo || '';
+  document.getElementById('c-nome').textContent = d.nome ? d.nome + ' \u69d8' : '';
+  document.getElementById('c-tipo').textContent = tipoTxt(d);
   var h = '';
   for (var i=0;i<d.itens.length;i++){
     var it = d.itens[i];
+    var ja = it.sac ? '\u30ec\u30b8\u888b' : it.ja;
+    var pt = it.sac ? 'Sacola' : it.pt;
+    var partes = [];
+    if (tamTxt(it.tam)) partes.push(tamTxt(it.tam));
+    if (it.det) partes.push(it.det);
     h += '<div class="item"><div class="qtd">' + esc(it.q) + '\u00d7</div><div class="desc">' +
-         '<div class="ja">' + esc(it.ja) + '</div>' +
-         (it.pt ? '<div class="pt">' + esc(it.pt) + '</div>' : '') +
-         (it.det ? '<div class="det">' + esc(it.det) + '</div>' : '') +
+         '<div class="ja">' + esc(ja) + '</div>' +
+         (pt ? '<div class="pt">' + esc(pt) + '</div>' : '') +
+         (partes.length ? '<div class="det">' + esc(partes.join(' \u00b7 ')) + '</div>' : '') +
          '</div><div class="preco">' + yen(it.preco) + '</div></div>';
   }
   document.getElementById('c-lista').innerHTML = h;
   document.getElementById('c-total').textContent = yen(d.total);
   var im = '';
-  for (var j=0;j<(d.imp||[]).length;j++) im += '<div><span>' + esc(d.imp[j][0]) + '</span><b>' + yen(d.imp[j][1]) + '</b></div>';
+  for (var j=0;j<(d.imp||[]).length;j++) im += '<div><span>' + ZEI + ' ' + d.imp[j][0] + '% / Imposto ' + d.imp[j][0] + '%</span><b>' + yen(d.imp[j][1]) + '</b></div>';
   document.getElementById('c-imp').innerHTML = im;
   ver('t-conta');
-}
-function ler(){
+}var pagoDesde = 0, tmrPago = null;
+function desenhar(d){
+  var agora = Date.now();
+  if (pagoDesde && !(d && d.estado === 'pago') && (agora - pagoDesde) < 10000) {
+    clearTimeout(tmrPago);
+    tmrPago = setTimeout(function(){ pagoDesde = 0; desenharAgora(d); }, 10000 - (agora - pagoDesde));
+    return;
+  }
+  if (d && d.estado === 'pago') { if (!pagoDesde) pagoDesde = agora; } else { pagoDesde = 0; }
+  desenharAgora(d);
+}function ler(){
   var x = new XMLHttpRequest();
   x.open('GET', URL_DOC + '?t=' + Date.now());
   x.timeout = 6000;
