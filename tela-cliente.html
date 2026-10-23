@@ -200,6 +200,7 @@ function desenharAgora(d){
          (partes.length ? '<div class="det">' + esc(partes.join(' \u00b7 ')) + '</div>' : '') +
          '</div><div class="preco">' + yen(it.preco) + '</div></div>';
   }
+  if (d.desc > 0) { h += '<div class="item"><div class="qtd"></div><div class="desc"><div class="ja">割引</div><div class="pt">Desconto</div></div><div class="preco">-' + yen(d.desc) + '</div></div>'; }
   document.getElementById('c-lista').innerHTML = h;
   document.getElementById('c-total').textContent = yen(d.total);
   var im = '';
