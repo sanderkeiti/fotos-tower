@@ -182,6 +182,7 @@ function tamTxt(t){
   return '';
 }
 function desenharAgora(d){
+  ultimoEstado = (d && d.estado) ? d.estado : 'espera';
   if (!d || d.estado === 'espera' || (d.estado !== 'pago' && (!d.itens || !d.itens.length))) { ver('t-espera'); return; }
   if (d.estado === 'pago') { ver('t-pago'); return; }
   document.getElementById('c-nome').textContent = d.nome ? d.nome + ' \u69d8' : '';
@@ -200,7 +201,11 @@ function desenharAgora(d){
          (partes.length ? '<div class="det">' + esc(partes.join(' \u00b7 ')) + '</div>' : '') +
          '</div><div class="preco">' + yen(it.preco) + '</div></div>';
   }
-  if (d.desc > 0) { h += '<div class="item"><div class="qtd"></div><div class="desc"><div class="ja">割引</div><div class="pt">Desconto</div></div><div class="preco">-' + yen(d.desc) + '</div></div>'; }
+  if (d.desc > 0) {
+    h += '<div class="item"><div class="qtd"></div><div class="desc">' +
+         '<div class="ja">割引</div><div class="pt">Desconto</div></div>' +
+         '<div class="preco">-' + yen(d.desc) + '</div></div>';
+  }
   document.getElementById('c-lista').innerHTML = h;
   document.getElementById('c-total').textContent = yen(d.total);
   var im = '';
@@ -234,8 +239,21 @@ function desenhar(d){
   };
   x.send();
 }
-ler();
-setInterval(ler, 2000);
+/* Economia de leituras do Firestore (plano gratuito = ~50 mil/dia):
+   conta aberta ou paga = a cada 2 s; sem conta (espera) = 5 s; aba escondida = 30 s;
+   fora do horario de funcionamento (Japao, antes das 10h) = 60 s. */
+var ultimoEstado = 'espera';
+function proximaEspera(){
+  var h = (new Date().getUTCHours() + 9) % 24;
+  if (h < 10) return 60000;
+  if (document.hidden) return 30000;
+  return (pagoDesde || ultimoEstado === 'conta') ? 2000 : 5000;
+}
+function ciclo(){
+  ler();
+  setTimeout(ciclo, proximaEspera());
+}
+ciclo();
 </script>
 </body>
 </html>
