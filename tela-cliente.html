@@ -241,18 +241,32 @@ function desenhar(d){
 }
 /* Economia de leituras do Firestore (plano gratuito = ~50 mil/dia):
    conta aberta ou paga = a cada 2 s; sem conta (espera) = 5 s; aba escondida = 30 s;
-   fora do horario de funcionamento (Japao, antes das 10h) = 60 s. */
+   fora do horario de funcionamento (Japao) = so 1 leitura a cada 5 min, a menos que alguem toque na tela
+   (ai fica ativa por 30 min). Horarios (com folga): seg e ter fechado; demais dias 11:00-14:00 e 17:30-23:30. */
 var ultimoEstado = 'espera';
+var acordadoAte = 0, tmrCiclo = null;
+function lojaAberta(){
+  var j = new Date(Date.now() + 9 * 3600 * 1000);
+  var dia = j.getUTCDay(), m = j.getUTCHours() * 60 + j.getUTCMinutes();
+  if (dia === 1 || dia === 2) return false;
+  return (m >= 11 * 60 && m < 14 * 60) || (m >= 17 * 60 + 30 && m < 23 * 60 + 30);
+}
 function proximaEspera(){
-  var h = (new Date().getUTCHours() + 9) % 24;
-  if (h < 10) return 60000;
+  if (!lojaAberta() && Date.now() > acordadoAte) return 300000;
   if (document.hidden) return 30000;
   return (pagoDesde || ultimoEstado === 'conta') ? 2000 : 5000;
 }
 function ciclo(){
+  clearTimeout(tmrCiclo);
   ler();
-  setTimeout(ciclo, proximaEspera());
+  tmrCiclo = setTimeout(ciclo, proximaEspera());
 }
+function acordar(){
+  acordadoAte = Date.now() + 30 * 60000;
+  ciclo();
+}
+document.addEventListener('click', acordar);
+document.addEventListener('touchstart', acordar);
 ciclo();
 </script>
 </body>
